@@ -1,0 +1,6 @@
+{
+  "name": "BlushNotes",
+  "description": "A clean, distraction-free markdown note-taking workspace with military-grade AES local encryption and zero-server-cost document AI chatting using personal API keys.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
