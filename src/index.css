@@ -59,10 +59,10 @@ input, textarea, select {
   font-family: var(--font-heading);
   font-size: 1.5rem;
   font-weight: 700;
-  color: var(--color-text-main);
+  color: #3b0a24;
   margin-top: 1.5rem;
   margin-bottom: 0.75rem;
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 2px solid var(--color-text-main);
   padding-bottom: 0.25rem;
 }
 
@@ -70,7 +70,7 @@ input, textarea, select {
   font-family: var(--font-heading);
   font-size: 1.25rem;
   font-weight: 600;
-  color: var(--color-text-main);
+  color: #4a0d2b;
   margin-top: 1.25rem;
   margin-bottom: 0.5rem;
 }
@@ -91,7 +91,7 @@ input, textarea, select {
 
 .markdown-preview strong, .markdown-response strong {
   font-weight: 700;
-  color: var(--color-text-muted);
+  color: #831843;
 }
 
 .markdown-preview ul, .markdown-response ul {
@@ -113,18 +113,21 @@ input, textarea, select {
 .markdown-preview code, .markdown-response code {
   font-family: var(--font-mono);
   font-size: 0.85em;
-  background-color: var(--color-sidebar-bg);
-  color: var(--color-text-muted);
+  background-color: #fff1f6;
+  color: #4a0d2b;
   padding: 0.15rem 0.3rem;
   border-radius: 0.25rem;
+  border: 1px solid rgba(80, 7, 36, 0.25);
 }
 
 .markdown-preview pre, .markdown-response pre {
   font-family: var(--font-mono);
-  background-color: #372A30; /* Cozy warm theme dark */
+  background-color: #2b0618;
   color: #FDF2F8;
   padding: 1rem;
-  border-radius: 0.75rem;
+  border-radius: 0.5rem;
+  border: 2px solid #500724;
+  box-shadow: 5px 5px 0 #500724;
   overflow-x: auto;
   margin: 1rem 0;
 }
@@ -181,4 +184,61 @@ input, textarea, select {
 
 .animate-fadeIn {
   animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.command-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.5rem;
+  color: var(--color-text-main);
+  font-size: 0.8125rem;
+  font-weight: 800;
+  text-align: left;
+  transition: background-color 0.16s ease, transform 0.16s ease;
+  cursor: pointer;
+}
+
+.command-row:hover:not(:disabled) {
+  background: var(--color-sidebar-bg);
+  transform: translateX(2px);
+}
+
+.inline-agent-button {
+  display: inline-flex;
+  width: 1.9rem;
+  height: 1.9rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.375rem;
+  color: var(--color-text-main);
+  transition: background-color 0.16s ease, color 0.16s ease;
+  cursor: pointer;
+}
+
+.inline-agent-button:hover {
+  background: var(--color-accent);
+  color: white;
+}
+
+@keyframes encryptionShift {
+  0% { background-position: 0% 50%; transform: translateY(-4px); opacity: 0; }
+  18% { opacity: 1; }
+  100% { background-position: 100% 50%; transform: translateY(0); opacity: 0; }
+}
+
+@keyframes lockPop {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  45% { transform: scale(1.2) rotate(-8deg); }
+}
+
+.animate-encryption-shift {
+  background-size: 220% 220%;
+  animation: encryptionShift 1.4s ease forwards;
+}
+
+.animate-lock-pop {
+  animation: lockPop 0.65s ease-in-out infinite;
 }

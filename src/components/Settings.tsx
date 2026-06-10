@@ -4,8 +4,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Key, Lock, Unlock, Eye, EyeOff, Save, Trash2, CheckCircle, ShieldAlert, Palette, Sparkles, Wind, Flower, Sliders, Activity, ShieldCheck, HardDrive, Info } from 'lucide-react';
-import { APIKeys, EncryptionConfig, SakuraConfig } from '../types';
+import { Key, Lock, Unlock, Eye, EyeOff, Save, Trash2, CheckCircle, ShieldAlert, Palette, Sparkles, Wind, Flower, Sliders, Activity, ShieldCheck, HardDrive, Info, Cpu, Brain, GitBranch, CloudCog } from 'lucide-react';
+import { APIKeys, EncryptionConfig, SakuraConfig, LocalModelConfig } from '../types';
 import { UI_THEMES } from '../constants/themes';
 import { validatePasswordStrength } from '../utils/crypto';
 import { checkStorageQuota } from '../utils/secureStorage';
@@ -34,6 +34,8 @@ interface SettingsProps {
   onUpdateSakuraConfig: (config: SakuraConfig) => void;
   autoLockMinutes: number;
   onSetAutoLockMinutes: (minutes: number) => void;
+  localModelConfig: LocalModelConfig;
+  onUpdateLocalModelConfig: (config: LocalModelConfig) => void;
 }
 
 export default function Settings({
@@ -49,12 +51,14 @@ export default function Settings({
   sakuraConfig,
   onUpdateSakuraConfig,
   autoLockMinutes,
-  onSetAutoLockMinutes
+  onSetAutoLockMinutes,
+  localModelConfig,
+  onUpdateLocalModelConfig
 }: SettingsProps) {
   // Key state — initialize from props
   const [keyValues, setKeyValues] = useState<APIKeys>({ ...apiKeys });
   const [keyVisibility, setKeyVisibility] = useState<Record<keyof APIKeys, boolean>>({
-    openai: false, anthropic: false, groq: false, gemini: false, cohere: false, mistral: false
+    openai: false, anthropic: false, groq: false, gemini: false, cohere: false, mistral: false, ollama: true, llamacpp: true
   });
 
   // Notification states
@@ -190,6 +194,70 @@ export default function Settings({
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      <div className="border-2 border-text-main bg-card-bg rounded-lg p-6 shadow-[6px_6px_0_var(--color-text-main)]">
+        <h2 className="text-lg font-extrabold text-text-main flex items-center gap-2 mb-2 font-sans">
+          <Cpu className="w-5 h-5 text-accent" />
+          Local Intelligence & Power Tools
+        </h2>
+        <p className="text-xs text-text-muted mb-6 font-sans leading-relaxed">
+          Connect local models, opt into private note memories, and prepare encrypted sync/version-history workflows without moving plaintext notes to a cloud service.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-text-main flex items-center gap-1.5">
+              <Cpu className="w-3.5 h-3.5 text-accent" /> Ollama Endpoint
+            </label>
+            <input
+              value={localModelConfig.ollamaUrl}
+              onChange={(event) => onUpdateLocalModelConfig({ ...localModelConfig, ollamaUrl: event.target.value })}
+              className="w-full px-3 py-2 border-2 border-text-main rounded-lg text-sm bg-white/50 focus:outline-none focus:border-accent font-mono text-text-main"
+              placeholder="http://localhost:11434"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-text-main flex items-center gap-1.5">
+              <Cpu className="w-3.5 h-3.5 text-accent" /> llama.cpp Endpoint
+            </label>
+            <input
+              value={localModelConfig.llamacppUrl}
+              onChange={(event) => onUpdateLocalModelConfig({ ...localModelConfig, llamacppUrl: event.target.value })}
+              className="w-full px-3 py-2 border-2 border-text-main rounded-lg text-sm bg-white/50 focus:outline-none focus:border-accent font-mono text-text-main"
+              placeholder="http://localhost:8080"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-5">
+          {[
+            { key: 'allowNoteMemories' as const, icon: Brain, title: 'Agent Memories', text: 'Let the agent reference unlocked local notes when answering.' },
+            { key: 'encryptedSyncEnabled' as const, icon: CloudCog, title: 'Zero-Knowledge Sync', text: 'Reserve encrypted CouchDB/WebRTC sync mode for sealed notes.' },
+            { key: 'gitHistoryEnabled' as const, icon: GitBranch, title: 'Git History', text: 'Track local note revisions for revertable AI and user edits.' }
+          ].map(item => {
+            const Icon = item.icon;
+            const enabled = localModelConfig[item.key];
+            return (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => onUpdateLocalModelConfig({ ...localModelConfig, [item.key]: !enabled })}
+                className={`p-3 rounded-lg border-2 text-left transition-all cursor-pointer ${enabled ? 'border-text-main bg-sidebar-bg shadow-[4px_4px_0_var(--color-text-main)]' : 'border-border bg-white/30 hover:border-text-main'}`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="flex items-center gap-1.5 text-xs font-extrabold text-text-main">
+                    <Icon className="w-4 h-4 text-accent" /> {item.title}
+                  </span>
+                  <span className={`h-5 w-9 rounded-full border border-text-main transition-colors ${enabled ? 'bg-accent' : 'bg-white'}`}>
+                    <span className={`block h-4 w-4 rounded-full bg-text-main transition-transform mt-0.5 ${enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                  </span>
+                </div>
+                <p className="text-[11px] leading-relaxed text-text-muted">{item.text}</p>
+              </button>
+            );
+          })}
         </div>
       </div>
 

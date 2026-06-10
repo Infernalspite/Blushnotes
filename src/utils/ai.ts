@@ -7,6 +7,14 @@ import { Note, ChatMessage, LLMProvider } from '../types';
 
 // Let's define the popular models for each provider
 export const PROVIDER_MODELS: Record<LLMProvider, { name: string; id: string }[]> = {
+  ollama: [
+    { name: 'Ollama: Llama 3.1', id: 'llama3.1' },
+    { name: 'Ollama: Mistral', id: 'mistral' },
+    { name: 'Ollama: Phi 3', id: 'phi3' }
+  ],
+  llamacpp: [
+    { name: 'llama.cpp: Local Server', id: 'local-model' }
+  ],
   gemini: [
     { name: '✦ Gemini 2.0 Flash (Free)', id: 'gemini-2.0-flash' },
     { name: '✦ Gemini 2.0 Flash Lite (Free)', id: 'gemini-2.0-flash-lite' },
@@ -47,6 +55,7 @@ interface CallAIProxyParams {
   model: string;
   messages: { role: 'user' | 'assistant' | 'system'; content: string }[];
   temperature?: number;
+  localEndpoint?: string;
 }
 
 export async function askAIProxy({
@@ -54,9 +63,39 @@ export async function askAIProxy({
   apiKey,
   model,
   messages,
-  temperature = 0.4
+  temperature = 0.4,
+  localEndpoint
 }: CallAIProxyParams): Promise<string> {
   try {
+    if (provider === 'ollama') {
+      const response = await fetch(`${localEndpoint || 'http://localhost:11434'}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model,
+          messages,
+          stream: false,
+          options: { temperature }
+        })
+      });
+
+      const data = await response.json() as any;
+      if (!response.ok) throw new Error(data.error || 'Ollama request failed.');
+      return data.message?.content || data.response || '';
+    }
+
+    if (provider === 'llamacpp') {
+      const response = await fetch(`${localEndpoint || 'http://localhost:8080'}/v1/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, messages, temperature })
+      });
+
+      const data = await response.json() as any;
+      if (!response.ok) throw new Error(data.error?.message || 'llama.cpp request failed.');
+      return data.choices?.[0]?.message?.content || '';
+    }
+
     const response = await fetch('/api/ai-chat', {
       method: 'POST',
       headers: {
@@ -80,14 +119,15 @@ export async function askAIProxy({
     return data.content || '';
   } catch (err: any) {
     console.error('API Error:', err);
-    throw new Error(err.message || 'Could not communicate with the AI model. Check your API key and connection.');
+    throw new Error(err.message || 'Could not communicate with the AI model. Check your API key, local endpoint, and connection.');
   }
 }
 
 // Generate the chat payload
 export function buildMessagesWithContext(
   messages: ChatMessage[],
-  selectedNotes: Note[]
+  selectedNotes: Note[],
+  memoryNotes: Note[] = []
 ): { role: 'user' | 'assistant' | 'system'; content: string }[] {
   // Construct context from notes
   let contextSection = '';
@@ -99,6 +139,15 @@ export function buildMessagesWithContext(
       contextSection += `=== End of Document ${index + 1} ===\n`;
     });
     contextSection += "\nUse the above document context to answer the user's question. Be accurate, clear, and refer directly to information present in these documents. If the user's prompt is not about the documents, you can address it generally while keeping the documents in mind.";
+  }
+
+  if (memoryNotes.length > 0) {
+    contextSection += "\n\n=== OPTIONAL LOCAL MEMORY CONTEXT ===\n";
+    memoryNotes.slice(0, 12).forEach((note, index) => {
+      contextSection += `\n[Memory ${index + 1}] ${note.title}\n`;
+      contextSection += `${note.content.slice(0, 1200)}\n`;
+    });
+    contextSection += "\nUse memories only when they are relevant, and never imply they were synced or uploaded.";
   }
 
   const systemPrompt = `You are a helpful, professional AI Note-Taking companion.

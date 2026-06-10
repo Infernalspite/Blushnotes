@@ -4,8 +4,8 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, FileText, Check, AlertCircle, Sparkles, Plus, Key, RefreshCw, FileCode, CheckSquare, Square, CornerDownLeft } from 'lucide-react';
-import { Note, ChatMessage, LLMProvider, APIKeys } from '../types';
+import { Send, FileText, Check, AlertCircle, Sparkles, Plus, Key, RefreshCw, FileCode, CheckSquare, Square, Brain, Cpu } from 'lucide-react';
+import { Note, ChatMessage, LLMProvider, APIKeys, LocalModelConfig } from '../types';
 import { PROVIDER_MODELS, askAIProxy, buildMessagesWithContext } from '../utils/ai';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
@@ -13,6 +13,7 @@ import DOMPurify from 'dompurify';
 interface ChatProps {
   notes: Note[];
   apiKeys: APIKeys;
+  localModelConfig: LocalModelConfig;
   onSaveNewNoteFromAI: (title: string, content: string) => void;
   onUpdateActiveNoteFromAI: (noteId: string, content: string) => void;
   activeNoteId: string | null;
@@ -21,6 +22,7 @@ interface ChatProps {
 export default function Chat({
   notes,
   apiKeys,
+  localModelConfig,
   onSaveNewNoteFromAI,
   onUpdateActiveNoteFromAI,
   activeNoteId
@@ -59,7 +61,9 @@ export default function Chat({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
+  const isLocalProvider = provider === 'ollama' || provider === 'llamacpp';
   const activeKey = apiKeys[provider];
+  const localEndpoint = provider === 'ollama' ? localModelConfig.ollamaUrl : localModelConfig.llamacppUrl;
 
   const handleToggleNoteContext = (noteId: string) => {
     setSelectedNoteIds(prev => 
@@ -73,7 +77,7 @@ export default function Chat({
     e.preventDefault();
     if (!inputMessage.trim() || isLoading) return;
 
-    if (!activeKey) {
+    if (!isLocalProvider && !activeKey) {
       setErrorStatus(`Please configure an active API key for ${provider.toUpperCase()} under Settings.`);
       return;
     }
@@ -97,16 +101,20 @@ export default function Chat({
     try {
       // Gather selected notes context (ensure they are decrypted and available to chat)
       const selectedNotes = notes.filter(n => selectedNoteIds.includes(n.id) && n.content);
+      const memoryNotes = localModelConfig.allowNoteMemories
+        ? notes.filter(n => !selectedNoteIds.includes(n.id) && n.content && !n.isEncrypted)
+        : [];
 
       // Build system prompt with note content
-      const apiPayloadMessages = buildMessagesWithContext(updatedMessages, selectedNotes);
+      const apiPayloadMessages = buildMessagesWithContext(updatedMessages, selectedNotes, memoryNotes);
 
       // Call Express server proxy
       const replyContent = await askAIProxy({
         provider,
         apiKey: activeKey,
         model: selectedModel,
-        messages: apiPayloadMessages
+        messages: apiPayloadMessages,
+        localEndpoint
       });
 
       // Append assistant reply
@@ -169,6 +177,8 @@ export default function Chat({
               <option value="gemini">Gemini</option>
               <option value="cohere">Cohere</option>
               <option value="mistral">Mistral</option>
+              <option value="ollama">Ollama Local</option>
+              <option value="llamacpp">llama.cpp Local</option>
             </select>
           </div>
 
@@ -206,6 +216,16 @@ export default function Chat({
           Clear Chat
         </button>
       </div>
+
+      {isLocalProvider && (
+        <div className="px-4 py-2 border-b border-border/50 bg-sidebar-bg/35 flex items-center justify-between gap-3 text-xs">
+          <span className="flex items-center gap-2 text-text-main font-semibold">
+            <Cpu className="w-4 h-4 text-accent" />
+            Local model endpoint: <code className="font-mono text-[11px] text-text-muted">{localEndpoint}</code>
+          </span>
+          <span className="text-[10px] font-bold uppercase text-text-muted">No cloud key required</span>
+        </div>
+      )}
 
       {/* Expandable note selection panel */}
       {isNoteSelectorOpen && (
@@ -252,7 +272,7 @@ export default function Chat({
       <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-bg-primary/10 select-text selection:bg-accent/20">
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-12 max-w-md mx-auto space-y-4">
-            <div className="w-12 h-12 rounded-full bg-accent flex items-center justify-center text-white shadow-xs">
+            <div className="w-12 h-12 rounded-lg bg-accent flex items-center justify-center text-white shadow-[4px_4px_0_var(--color-text-main)] border-2 border-text-main">
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
@@ -262,8 +282,13 @@ export default function Chat({
               </p>
             </div>
             {selectedNoteIds.length > 0 && (
-              <div className="bg-sidebar-bg text-text-main px-3 py-1.5 rounded-xl text-xs inline-flex items-center gap-1.5 font-bold border border-border/40 animate-fadeIn">
+              <div className="bg-sidebar-bg text-text-main px-3 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 font-bold border-2 border-text-main animate-fadeIn shadow-[3px_3px_0_var(--color-text-main)]">
                 <FileCode className="w-3.5 h-3.5 text-accent" /> Context Scope: {selectedNoteIds.length} connected files
+              </div>
+            )}
+            {localModelConfig.allowNoteMemories && (
+              <div className="bg-editor-bg text-text-main px-3 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 font-bold border border-border/60 animate-fadeIn">
+                <Brain className="w-3.5 h-3.5 text-accent" /> Agent memories enabled for unlocked local notes
               </div>
             )}
           </div>
@@ -280,7 +305,7 @@ export default function Chat({
 
               {/* Message bubble */}
               <div
-                className={`p-4 rounded-2xl text-xs space-y-1 block leading-relaxed ${msg.role === 'user' ? 'bg-accent text-white shadow-xs rounded-tr-none' : 'bg-editor-bg border border-border/50 text-text-main rounded-tl-none font-sans'}`}
+                className={`p-4 rounded-lg text-xs space-y-1 block leading-relaxed border-2 shadow-[4px_4px_0_var(--color-text-main)] ${msg.role === 'user' ? 'bg-[#c75d84] border-text-main text-white rounded-tr-none' : 'bg-[#fff1f6] border-text-main text-text-main rounded-tl-none font-sans'}`}
               >
                 {msg.role === 'user' ? (
                   <p className="whitespace-pre-wrap font-medium">{msg.content}</p>
@@ -344,7 +369,7 @@ export default function Chat({
 
       {/* Input bar bottom */}
       <div className="p-4 border-t border-border bg-editor-bg/40">
-        {!activeKey ? (
+        {!isLocalProvider && !activeKey ? (
           <div className="p-3 bg-red-50/40 rounded-xl border border-border/50 flex items-center justify-between text-xs text-text-muted">
             <span className="flex items-center gap-2">
               <Key className="w-4 h-4 text-accent" />

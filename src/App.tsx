@@ -8,12 +8,12 @@ import Sidebar from './components/Sidebar';
 import Editor from './components/Editor';
 import Chat from './components/Chat';
 import Settings from './components/Settings';
-import { Note, APIKeys, EncryptionConfig, SakuraConfig } from './types';
+import { Note, APIKeys, EncryptionConfig, SakuraConfig, LocalModelConfig } from './types';
 import { UI_THEMES, DEFAULT_THEME_ID, DEFAULT_SAKURA_CONFIG } from './constants/themes';
 import SakuraCanvas from './components/SakuraCanvas';
 import { encryptText, decryptText } from './utils/crypto';
-import { loadNotes, saveNotes, loadSakuraConfig, saveSakuraConfig, loadThemeId, saveThemeId, loadStoredApiKeys, persistApiKeys, clearAppData, loadCryptoVerificationPayload, saveCryptoVerificationPayload, loadCryptoHint, saveCryptoHint } from './utils/persistence';
-import { Heart, Activity, CheckCircle, Flame, ShieldCheck } from 'lucide-react';
+import { loadNotes, saveNotes, loadSakuraConfig, saveSakuraConfig, loadThemeId, saveThemeId, loadStoredApiKeys, persistApiKeys, clearAppData, loadCryptoVerificationPayload, saveCryptoVerificationPayload, loadCryptoHint, saveCryptoHint, loadLocalModelConfig, saveLocalModelConfig } from './utils/persistence';
+import { Activity, FileText, Lock, MessageSquare, Search, Settings as SettingsIcon, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 
@@ -75,8 +75,12 @@ export default function App() {
     groq: '',
     gemini: '',
     cohere: '',
-    mistral: ''
+    mistral: '',
+    ollama: '',
+    llamacpp: ''
   });
+
+  const [localModelConfig, setLocalModelConfig] = useState<LocalModelConfig>(() => loadLocalModelConfig());
 
   // Encryption status
   const [encryptionConfig, setEncryptionConfig] = useState<EncryptionConfig>({
@@ -87,6 +91,8 @@ export default function App() {
   });
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [commandQuery, setCommandQuery] = useState('');
 
   // Synchronize dynamic theme classes on document root element
   useEffect(() => {
@@ -104,9 +110,29 @@ export default function App() {
     saveThemeId(currentThemeId);
   }, [currentThemeId]);
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setIsCommandPaletteOpen(true);
+      }
+      if (event.key === 'Escape') {
+        setIsCommandPaletteOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const handleUpdateSakuraConfig = (newConfig: SakuraConfig) => {
     setSakuraConfig(newConfig);
     saveSakuraConfig(newConfig);
+  };
+
+  const handleUpdateLocalModelConfig = (newConfig: LocalModelConfig) => {
+    setLocalModelConfig(newConfig);
+    saveLocalModelConfig(newConfig);
   };
 
   // Load initial settings and documents on mounting
@@ -367,12 +393,19 @@ export default function App() {
 
     setNotes(INITIAL_NOTES);
     setSelectedNoteId(INITIAL_NOTES[0].id);
-    setApiKeys({ openai: '', anthropic: '', groq: '', gemini: '', cohere: '', mistral: '' });
+    setApiKeys({ openai: '', anthropic: '', groq: '', gemini: '', cohere: '', mistral: '', ollama: '', llamacpp: '' });
     setEncryptionConfig({
       hasMasterPassword: false,
       isUnlocked: false,
       sessionKey: null,
       hint: ''
+    });
+    handleUpdateLocalModelConfig({
+      ollamaUrl: 'http://localhost:11434',
+      llamacppUrl: 'http://localhost:8080',
+      allowNoteMemories: false,
+      encryptedSyncEnabled: false,
+      gitHistoryEnabled: false
     });
     setSessionPassword('');
     setActiveTab('write');
@@ -380,6 +413,17 @@ export default function App() {
   };
 
   const activeNote = notes.find(n => n.id === selectedNoteId) || null;
+
+  const commandNotes = notes.filter(note => {
+    const query = commandQuery.toLowerCase();
+    return note.title.toLowerCase().includes(query) || note.tags.some(tag => tag.toLowerCase().includes(query));
+  }).slice(0, 5);
+
+  const runCommand = (command: () => void) => {
+    command();
+    setIsCommandPaletteOpen(false);
+    setCommandQuery('');
+  };
 
   return (
     <div className="w-full h-screen flex bg-bg-primary overflow-hidden relative selection:bg-pink-100" id="app-viewport">
@@ -397,6 +441,62 @@ export default function App() {
           >
             <Activity className="w-4 h-4 text-pink-400 animate-pulse" />
             <span>{toastMessage}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isCommandPaletteOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-50 bg-[#2a0718]/35 backdrop-blur-sm flex items-start justify-center pt-[12vh] px-4"
+            onClick={() => setIsCommandPaletteOpen(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: -16, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -16, scale: 0.98 }}
+              className="w-full max-w-xl bg-editor-bg border-2 border-text-main rounded-lg shadow-[8px_8px_0_var(--color-text-main)] overflow-hidden"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-center gap-2 px-4 py-3 border-b-2 border-text-main bg-sidebar-bg/70">
+                <Search className="w-4 h-4 text-accent" />
+                <input
+                  autoFocus
+                  value={commandQuery}
+                  onChange={(event) => setCommandQuery(event.target.value)}
+                  placeholder="Search notes or run a command..."
+                  className="flex-1 bg-transparent text-sm font-semibold text-text-main placeholder:text-text-muted/50 focus:outline-none"
+                />
+                <span className="text-[10px] font-bold text-text-muted border border-border bg-white/60 rounded px-1.5 py-0.5">Esc</span>
+              </div>
+              <div className="p-2 max-h-[420px] overflow-y-auto">
+                <button onClick={() => runCommand(() => handleCreateNote(false))} className="command-row">
+                  <FileText className="w-4 h-4" /> New clear note
+                </button>
+                <button onClick={() => runCommand(() => handleCreateNote(true))} disabled={!encryptionConfig.hasMasterPassword || !encryptionConfig.isUnlocked} className="command-row disabled:opacity-40">
+                  <Lock className="w-4 h-4" /> New encrypted note
+                </button>
+                <button onClick={() => runCommand(() => setActiveTab('chat'))} className="command-row">
+                  <MessageSquare className="w-4 h-4" /> Switch to agent chat
+                </button>
+                <button onClick={() => runCommand(() => setActiveTab('settings'))} className="command-row">
+                  <SettingsIcon className="w-4 h-4" /> Open settings and security
+                </button>
+                {commandNotes.length > 0 && (
+                  <div className="pt-2 mt-2 border-t border-border/50">
+                    <p className="px-3 pb-1 text-[10px] uppercase font-extrabold text-text-muted">Notes</p>
+                    {commandNotes.map(note => (
+                      <button key={note.id} onClick={() => runCommand(() => { setSelectedNoteId(note.id); setActiveTab('write'); })} className="command-row">
+                        <Sparkles className="w-4 h-4" /> {note.title || 'Untitled Note'}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -424,6 +524,10 @@ export default function App() {
             onUpdateNote={handleUpdateNote}
             onDeleteNote={handleDeleteNote}
             encryptionConfig={encryptionConfig}
+            onInlineAgentRequest={(prompt) => {
+              setActiveTab('chat');
+              showToast(prompt);
+            }}
           />
         )}
 
@@ -431,6 +535,7 @@ export default function App() {
           <Chat
             notes={notes}
             apiKeys={apiKeys}
+            localModelConfig={localModelConfig}
             onSaveNewNoteFromAI={handleSaveNewNoteFromAI}
             onUpdateActiveNoteFromAI={handleApplyAITextToNote}
             activeNoteId={selectedNoteId}
@@ -453,6 +558,8 @@ export default function App() {
               onUpdateSakuraConfig={handleUpdateSakuraConfig}
               autoLockMinutes={autoLockMinutes}
               onSetAutoLockMinutes={setAutoLockMinutes}
+              localModelConfig={localModelConfig}
+              onUpdateLocalModelConfig={handleUpdateLocalModelConfig}
             />
           </div>
         )}

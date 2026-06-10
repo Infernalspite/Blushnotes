@@ -58,7 +58,7 @@ async function startServer() {
       "script-src 'self' 'unsafe-inline'; " +
       "style-src 'self' 'unsafe-inline'; " +
       "img-src 'self' data: blob:; " +
-      "connect-src 'self' https://api.openai.com https://api.anthropic.com https://api.groq.com https://generativelanguage.googleapis.com https://api.cohere.com https://api.mistral.ai; " +
+      "connect-src 'self' http://localhost:* http://127.0.0.1:* https://api.openai.com https://api.anthropic.com https://api.groq.com https://generativelanguage.googleapis.com https://api.cohere.com https://api.mistral.ai; " +
       "font-src 'self' https://fonts.gstatic.com; " +
       "frame-ancestors 'none'"
     );

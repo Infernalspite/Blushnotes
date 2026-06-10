@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Eye, Edit2, Columns, Lock, Unlock, Tag, Trash2, Calendar, FileText, CheckCircle, Plus, X, Heart, Hash } from 'lucide-react';
+import { Eye, Edit2, Columns, Lock, Unlock, Trash2, Calendar, FileText, CheckCircle, Plus, X, Heart, Hash, Wand2, Minimize2, Expand } from 'lucide-react';
 import { Note, EncryptionConfig } from '../types';
 import { marked } from 'marked';
 
@@ -13,18 +13,22 @@ interface EditorProps {
   onUpdateNote: (updated: Partial<Note>) => void;
   onDeleteNote: (id: string) => void;
   encryptionConfig: EncryptionConfig;
+  onInlineAgentRequest?: (prompt: string) => void;
 }
 
 export default function Editor({
   note,
   onUpdateNote,
   onDeleteNote,
-  encryptionConfig
+  encryptionConfig,
+  onInlineAgentRequest
 }: EditorProps) {
   // Modes: 'write', 'preview', 'split'
   const [viewMode, setViewMode] = useState<'write' | 'preview' | 'split'>('split');
   const [newTag, setNewTag] = useState('');
   const [autoSaved, setAutoSaved] = useState(false);
+  const [selectedText, setSelectedText] = useState('');
+  const [encryptionPulse, setEncryptionPulse] = useState(false);
 
   // Parse Markdown to HTML
   const [htmlContent, setHtmlContent] = useState('');
@@ -81,6 +85,11 @@ export default function Editor({
     triggerAutoSaved();
   };
 
+  const handleTextSelection = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
+    const target = e.currentTarget;
+    setSelectedText(target.value.slice(target.selectionStart, target.selectionEnd).trim());
+  };
+
   const handleAddTag = (e: React.FormEvent) => {
     e.preventDefault();
     const tag = newTag.trim().toLowerCase().replace(/#/g, '');
@@ -107,8 +116,15 @@ export default function Editor({
       alert('Please unlock your secure partition in Settings first.');
       return;
     }
+    setEncryptionPulse(true);
+    setTimeout(() => setEncryptionPulse(false), 1400);
     onUpdateNote({ isEncrypted: !note.isEncrypted });
     triggerAutoSaved();
+  };
+
+  const requestInlineAgent = (mode: 'rewrite' | 'summarize' | 'expand') => {
+    if (!selectedText || !onInlineAgentRequest) return;
+    onInlineAgentRequest(`${mode}: ${selectedText.slice(0, 160)}`);
   };
 
   // Word & Character count calculation
@@ -117,6 +133,14 @@ export default function Editor({
 
   return (
     <div className="flex-1 flex flex-col h-full bg-editor-bg relative animate-fadeIn" id="editor-workspace">
+      {encryptionPulse && (
+        <div className="absolute inset-x-6 top-20 z-20 rounded-lg border-2 border-text-main bg-[linear-gradient(110deg,#fff1f7,#f9a8d4,#fff7ed)] shadow-[5px_5px_0_var(--color-text-main)] px-4 py-3 flex items-center gap-3 animate-encryption-shift pointer-events-none">
+          <Lock className="w-4 h-4 text-text-main animate-lock-pop" />
+          <span className="text-xs font-extrabold text-text-main">
+            {note.isEncrypted ? 'Returning this note to clear text mode...' : 'Sealing this note with local AES-GCM...'}
+          </span>
+        </div>
+      )}
       {/* Editor Controls Bar */}
       <div className="p-4 border-b border-border bg-editor-bg/40 flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
@@ -156,7 +180,7 @@ export default function Editor({
             <button
               onClick={toggleEncryption}
                disabled={isLockedEncrypted}
-              className={`px-3 py-1.5 rounded-xl border text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${isLockedEncrypted ? 'bg-white/20 border-border/20 text-text-muted/40 cursor-not-allowed' : note.isEncrypted ? 'bg-green-50/40 border-green-200 text-green-700 hover:bg-green-100/60' : 'bg-sidebar-bg border-border text-text-muted hover:bg-white/50'}`}
+              className={`px-3 py-1.5 rounded-lg border-2 text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${isLockedEncrypted ? 'bg-white/20 border-border/20 text-text-muted/40 cursor-not-allowed' : note.isEncrypted ? 'bg-green-50/70 border-text-main text-green-800 shadow-[3px_3px_0_var(--color-text-main)]' : 'bg-sidebar-bg border-text-main text-text-main hover:bg-white/70 shadow-[3px_3px_0_var(--color-text-main)]'}`}
               title={note.isEncrypted ? 'This document will be saved encrypted with AES-GCM' : 'Make this document encrypted'}
             >
               {note.isEncrypted ? (
@@ -244,9 +268,23 @@ export default function Editor({
             {/* Split Panel Left: Editor */}
             {String(viewMode) !== 'preview' && (
               <div className={`flex-1 h-full relative ${String(viewMode) === 'split' ? 'border-r border-border/20' : ''}`}>
+                {selectedText && (
+                  <div className="absolute left-6 top-4 z-10 flex items-center gap-1.5 rounded-lg border-2 border-text-main bg-editor-bg p-1 shadow-[4px_4px_0_var(--color-text-main)] animate-fadeIn">
+                    <button onClick={() => requestInlineAgent('rewrite')} className="inline-agent-button" title="Rewrite selection">
+                      <Wand2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button onClick={() => requestInlineAgent('summarize')} className="inline-agent-button" title="Summarize selection">
+                      <Minimize2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button onClick={() => requestInlineAgent('expand')} className="inline-agent-button" title="Expand selection">
+                      <Expand className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
                 <textarea
                   value={note.content}
                   onChange={handleContentChange}
+                  onSelect={handleTextSelection}
                   placeholder="Insert your markdown text here..."
                   className="w-full h-full p-6 text-sm font-sans focus:outline-none resize-none bg-transparent text-text-main leading-relaxed placeholder-text-muted/30 border-none select-text"
                   spellCheck="false"

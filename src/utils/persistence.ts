@@ -1,4 +1,4 @@
-import { APIKeys, Note, SakuraConfig } from '../types';
+import { APIKeys, LocalModelConfig, Note, SakuraConfig } from '../types';
 import { secureGet, secureSet, secureRemove, purgeAll, checkStorageQuota } from './secureStorage';
 import { decodeBase64 } from './crypto';
 
@@ -8,7 +8,8 @@ const STORAGE_KEYS = {
   cryptoVerify: 'blushnotes_crypto_verify',
   cryptoHint: 'blushnotes_crypto_hint',
   themeId: 'blushnotes_theme_id',
-  sakuraConfig: 'blushnotes_sakura_config'
+  sakuraConfig: 'blushnotes_sakura_config',
+  localModelConfig: 'blushnotes_local_model_config'
 };
 
 const emptyApiKeys: APIKeys = {
@@ -17,7 +18,17 @@ const emptyApiKeys: APIKeys = {
   groq: '',
   gemini: '',
   cohere: '',
-  mistral: ''
+  mistral: '',
+  ollama: '',
+  llamacpp: ''
+};
+
+export const defaultLocalModelConfig: LocalModelConfig = {
+  ollamaUrl: 'http://localhost:11434',
+  llamacppUrl: 'http://localhost:8080',
+  allowNoteMemories: false,
+  encryptedSyncEnabled: false,
+  gitHistoryEnabled: false
 };
 
 export function loadThemeId(): string | null {
@@ -42,6 +53,20 @@ export function saveSakuraConfig(config: SakuraConfig): void {
   localStorage.setItem(STORAGE_KEYS.sakuraConfig, JSON.stringify(config));
 }
 
+export function loadLocalModelConfig(): LocalModelConfig {
+  const raw = localStorage.getItem(STORAGE_KEYS.localModelConfig);
+  if (!raw) return defaultLocalModelConfig;
+  try {
+    return { ...defaultLocalModelConfig, ...JSON.parse(raw) } as LocalModelConfig;
+  } catch {
+    return defaultLocalModelConfig;
+  }
+}
+
+export function saveLocalModelConfig(config: LocalModelConfig): void {
+  localStorage.setItem(STORAGE_KEYS.localModelConfig, JSON.stringify(config));
+}
+
 export function loadNotes(): Note[] | null {
   const raw = localStorage.getItem(STORAGE_KEYS.notes);
   if (!raw) return null;
@@ -60,7 +85,7 @@ export async function loadStoredApiKeys(): Promise<APIKeys> {
   try {
     const encrypted = await secureGet(STORAGE_KEYS.apiKeys);
     if (encrypted) {
-      return JSON.parse(encrypted) as APIKeys;
+      return { ...emptyApiKeys, ...JSON.parse(encrypted) } as APIKeys;
     }
 
     const legacy = localStorage.getItem(STORAGE_KEYS.apiKeys);
@@ -73,7 +98,9 @@ export async function loadStoredApiKeys(): Promise<APIKeys> {
       groq: decodeBase64(parsed.groq || ''),
       gemini: decodeBase64(parsed.gemini || ''),
       cohere: decodeBase64(parsed.cohere || ''),
-      mistral: decodeBase64(parsed.mistral || '')
+      mistral: decodeBase64(parsed.mistral || ''),
+      ollama: '',
+      llamacpp: ''
     };
 
     await persistApiKeys(migrated);

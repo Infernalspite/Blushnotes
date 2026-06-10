@@ -16,7 +16,7 @@ export interface Note {
   updatedAt: string;
 }
 
-export type LLMProvider = 'openai' | 'anthropic' | 'groq' | 'gemini' | 'cohere' | 'mistral';
+export type LLMProvider = 'openai' | 'anthropic' | 'groq' | 'gemini' | 'cohere' | 'mistral' | 'ollama' | 'llamacpp';
 
 export interface APIKeys {
   openai: string;
@@ -25,6 +25,16 @@ export interface APIKeys {
   gemini: string;
   cohere: string;
   mistral: string;
+  ollama: string;
+  llamacpp: string;
+}
+
+export interface LocalModelConfig {
+  ollamaUrl: string;
+  llamacppUrl: string;
+  allowNoteMemories: boolean;
+  encryptedSyncEnabled: boolean;
+  gitHistoryEnabled: boolean;
 }
 
 export interface ChatMessage {

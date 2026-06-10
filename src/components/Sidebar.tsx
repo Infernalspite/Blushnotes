@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { Search, Plus, Tag, Lock, Unlock, FileText, CheckSquare, Hash, Calendar, Heart } from 'lucide-react';
+import { Search, Plus, Tag, Lock, Unlock, FileText, Hash, Calendar, Command, MessageSquareText } from 'lucide-react';
 import { Note, EncryptionConfig } from '../types';
 
 interface SidebarProps {
@@ -68,7 +68,7 @@ export default function Sidebar({
             <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
           </div>
           <div>
-            <span className="font-extrabold text-text-main tracking-tight block text-sm">Blossom Notes</span>
+            <span className="font-extrabold text-text-main tracking-tight block text-sm">BlushNotes</span>
             <span className="text-[9px] text-text-muted font-mono tracking-wider font-semibold uppercase">Local & Secure</span>
           </div>
         </div>
@@ -79,13 +79,13 @@ export default function Sidebar({
             onClick={() => setActiveTab('write')}
             className={`px-2 py-1 rounded-md transition-all cursor-pointer ${activeTab === 'write' ? 'bg-editor-bg shadow-xs font-bold text-text-main' : 'text-text-muted hover:text-text-main'}`}
           >
-            Notes
+            <FileText className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => setActiveTab('chat')}
             className={`px-2 py-1 rounded-md transition-all cursor-pointer ${activeTab === 'chat' ? 'bg-editor-bg shadow-xs font-bold text-text-main' : 'text-text-muted hover:text-text-main'}`}
           >
-            AI Chat
+            <MessageSquareText className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
@@ -117,7 +117,7 @@ export default function Sidebar({
       <div className="p-4 border-b border-border/50 flex items-center gap-2">
         <button
           onClick={() => onCreateNote(false)}
-          className="flex-1 py-2 px-3 bg-accent hover:opacity-90 text-white rounded-xl text-xs font-semibold text-center transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+          className="flex-1 py-2 px-3 bg-accent hover:opacity-90 text-white rounded-lg text-xs font-semibold text-center transition-all flex items-center justify-center gap-1.5 cursor-pointer border-2 border-text-main shadow-[3px_3px_0_var(--color-text-main)]"
         >
           <Plus className="w-3.5 h-3.5" /> Clear Note
         </button>
@@ -126,7 +126,7 @@ export default function Sidebar({
           <button
             onClick={() => onCreateNote(true)}
             disabled={!encryptionConfig.isUnlocked}
-            className={`py-2 px-3 rounded-xl text-xs font-semibold text-center transition-all flex items-center gap-1.5 cursor-pointer shadow-xs ${encryptionConfig.isUnlocked ? 'bg-text-main text-white hover:opacity-90' : 'bg-white/40 text-text-muted/40 cursor-not-allowed border border-border/50'}`}
+            className={`py-2 px-3 rounded-lg text-xs font-semibold text-center transition-all flex items-center gap-1.5 cursor-pointer border-2 border-text-main shadow-[3px_3px_0_var(--color-text-main)] ${encryptionConfig.isUnlocked ? 'bg-text-main text-white hover:opacity-90' : 'bg-white/40 text-text-muted/40 cursor-not-allowed'}`}
             title={encryptionConfig.isUnlocked ? 'Create encrypted note' : 'Vault must be unlocked first'}
           >
             <Lock className="w-3.5 h-3.5" /> Secure
@@ -253,7 +253,9 @@ export default function Sidebar({
         >
           <Tag className="w-4 h-4 text-accent" /> Settings & Security
         </button>
-        <span className="text-[10px] text-text-muted/40 font-light">v1.1</span>
+        <span className="text-[10px] text-text-muted/60 font-bold flex items-center gap-1">
+          <Command className="w-3 h-3" /> K
+        </span>
       </div>
     </div>
   );
